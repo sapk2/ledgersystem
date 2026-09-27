@@ -6,4 +6,10 @@ return [
     'pharmacy_phone' => env('PHARMACY_PHONE', '01-4445556'),
     'pharmacy_email' => env('PHARMACY_EMAIL', 'hello@pharmacy.com'),
     'currency' => env('LEDGER_CURRENCY', 'Rs.'),
+
+    'super_admin' => [
+        'name' => env('SUPER_ADMIN_NAME', 'Super Admin'),
+        'email' => env('SUPER_ADMIN_EMAIL', 'superadmin@pharmacy.test'),
+        'password' => env('SUPER_ADMIN_PASSWORD', 'password'),
+    ],
 ];

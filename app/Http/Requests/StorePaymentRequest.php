@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StorePaymentRequest extends FormRequest
 {
@@ -22,7 +23,12 @@ class StorePaymentRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'distributor_id' => ['required', 'exists:distributors,id'],
+            // Scoped so a payment can never be posted against another pharmacy's distributor.
+            'distributor_id' => [
+                'required',
+                Rule::exists('distributors', 'id')
+                    ->where(fn ($query) => $query->where('pharmacy_id', $this->user()->pharmacy_id)),
+            ],
             'amount' => ['required', 'numeric', 'gt:0'],
             'payment_date' => ['required', 'date'],
             'reference' => ['nullable', 'string', 'max:100'],

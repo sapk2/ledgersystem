@@ -13,9 +13,9 @@
            class="fixed inset-y-0 left-0 z-50 flex w-72 flex-col bg-slate-900 text-slate-100 shadow-2xl transition-transform duration-200 ease-in-out lg:transform-none">
         {{-- Brand --}}
         <div class="flex h-16 shrink-0 items-center justify-between border-b border-slate-800 px-6">
-            <a href="{{ route('dashboard') }}" class="flex items-center gap-2.5">
-                <x-application-logo class="block h-8 w-auto" />
-                <span class="text-base font-bold tracking-tight text-white">Ledger Book</span>
+            <a href="{{ route('dashboard') }}" class="flex min-w-0 flex-col">
+                <span class="text-base font-bold tracking-tight text-white">{{ Auth::user()->pharmacy?->name ?? 'Ledger Book' }}</span>
+                <span class="truncate text-[11px] font-medium uppercase tracking-wider text-slate-400">Ledger Book</span>
             </a>
             <button @click="sidebarOpen = false" class="text-slate-400 hover:text-white lg:hidden" aria-label="Close sidebar">
                 <svg class="h-6 w-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -76,6 +76,18 @@
                     </x-sidebar-link>
                 </div>
             </div>
+
+            <div>
+                <p class="px-3 text-xs font-semibold uppercase tracking-widest text-slate-500">Settings</p>
+                <div class="mt-2 space-y-1">
+                    <x-sidebar-link :href="route('pharmacy.settings.edit')" :active="request()->routeIs('pharmacy.settings.*')">
+                        <svg class="h-5 w-5 shrink-0" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 21h19.5m-18-18v18m10.5-18v18m6-13.5V21M6.75 6.75h.75m-.75 3h.75m-.75 3h.75m3-6h.75m-.75 3h.75m-.75 3h.75M6.75 21v-3.375c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21M3 3h12m-.75 4.5H21m-3.75 3.75h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008zm0 3h.008v.008h-.008v-.008z" />
+                        </svg>
+                        <span>Pharmacy Details</span>
+                    </x-sidebar-link>
+                </div>
+            </div>
         </div>
 
         {{-- User --}}
@@ -115,12 +127,11 @@
     <div class="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200 bg-white px-4 shadow-sm lg:hidden">
         <button @click="sidebarOpen = true" class="text-slate-600 hover:text-slate-900" aria-label="Open sidebar">
             <svg class="h-6 w-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16" />
             </svg>
         </button>
-        <div class="flex items-center gap-2">
-            <x-application-logo class="block h-7 w-auto" />
-            <span class="text-base font-bold tracking-tight text-slate-900">Ledger Book</span>
+        <div class="min-w-0 px-2 text-center">
+            <span class="block truncate text-sm font-bold tracking-tight text-slate-900">{{ Auth::user()->pharmacy?->name ?? 'Ledger Book' }}</span>
         </div>
         <div class="w-6"></div>
     </div>

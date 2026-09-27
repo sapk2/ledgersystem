@@ -15,12 +15,7 @@
                 @endif
             </p>
         </div>
-        <a href="{{ route('distributors.ledger', $distributor) }}"
-           class="inline-flex items-center gap-1 text-sm font-medium text-indigo-600 hover:text-indigo-800">
-            Open Full Ledger →
-        </a>
     </div>
-
     <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div class="rounded-md border border-gray-200 bg-white p-3">
             <p class="text-xs text-gray-500">Total Purchases (Dr)</p>

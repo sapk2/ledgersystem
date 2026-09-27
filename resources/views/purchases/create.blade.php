@@ -33,7 +33,6 @@
                             <x-input-label for="distributor_id" value="{{ __('Distributor') }}" />
                             <select id="distributor_id" name="distributor_id" required
                                 x-model.number="distributorId"
-                                @change="generateBillNo()"
                                 class="mt-1 block w-full border-gray-300 focus:border-indigo-500 focus:ring-indigo-500 rounded-md shadow-sm">
                                 <option value="">Select distributor…</option>
                                 @foreach ($distributors as $distributor)
@@ -47,9 +46,9 @@
                         </div>
 
                         <div>
-                            <x-input-label for="bill_no" value="{{ __('Bill No (auto)') }}" />
-                            <x-text-input id="bill_no" name="bill_no" x-model="billNo" readonly
-                                class="mt-1 block w-full bg-gray-50 text-gray-500" />
+                            <x-input-label for="bill_no" value="{{ __('Bill No') }}" />
+                            <x-text-input id="bill_no" name="bill_no" value="{{ old('bill_no') }}" maxlength="100" required
+                                class="mt-1 block w-full" />
                             <x-input-error :messages="$errors->get('bill_no')" class="mt-2" />
                         </div>
 
@@ -202,19 +201,9 @@
             return {
                 medicines,
                 distributorId: @js((int) old('distributor_id', request('distributor'))),
-                billNo: @js(old('bill_no', '')),
                 discount: 0,
                 vat: 0,
                 items: [{ medicine_name: '', batch_no: '', expiry_date: '', quantity: 1, rate: 0, amount: 0 }],
-                async generateBillNo() {
-                    if (!this.distributorId) {
-                        this.billNo = '';
-                        return;
-                    }
-                    const response = await fetch(`/purchases/bill-number?distributor_id=${this.distributorId}`);
-                    const data = await response.json();
-                    this.billNo = data.bill_no;
-                },
                 get subtotal() {
                     return this.items.reduce((sum, item) => sum + this.lineAmount(item), 0);
                 },

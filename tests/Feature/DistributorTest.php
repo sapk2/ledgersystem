@@ -1,14 +1,13 @@
 <?php
 
 use App\Models\Distributor;
-use App\Models\User;
 
 it('requires authentication', function () {
     $this->get(route('distributors.index'))->assertRedirect(route('login'));
 });
 
 it('shows the A–Z index grouped by first letter', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
 
     Distributor::factory()->create(['name' => 'Parat Pharma']);
     Distributor::factory()->create(['name' => 'Apex Medicine Center']);
@@ -21,7 +20,7 @@ it('shows the A–Z index grouped by first letter', function () {
 });
 
 it('embeds all distributors for client-side letter filtering', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
 
     Distributor::factory()->create(['name' => 'Parat Pharma']);
     Distributor::factory()->create(['name' => 'Apex Medicine Center']);
@@ -34,7 +33,7 @@ it('embeds all distributors for client-side letter filtering', function () {
 });
 
 it('embeds distributors for live client-side search', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
 
     Distributor::factory()->create(['name' => 'Parat Pharma']);
     Distributor::factory()->create(['name' => 'City Drug House']);
@@ -47,7 +46,7 @@ it('embeds distributors for live client-side search', function () {
 });
 
 it('creates a distributor and redirects to the ledger', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
 
     $this->actingAs($user)
         ->post(route('distributors.store'), [
@@ -68,7 +67,7 @@ it('creates a distributor and redirects to the ledger', function () {
 });
 
 it('shows the ledger with entries and running balance', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create(['opening_balance' => 1000]);
 
     $purchase = $distributor->purchases()->create([
@@ -97,8 +96,48 @@ it('shows the ledger with entries and running balance', function () {
         ->assertSee('1,500.00');
 });
 
+it('heads the printed ledger with the pharmacy and distributor details', function () {
+    $user = pharmacyUser();
+    $user->pharmacy->update([
+        'name' => 'Prapti Pharma',
+        'address' => 'Koteshwor, Kathmandu',
+        'phone' => '01-4334455',
+    ]);
+
+    $distributor = Distributor::factory()->create([
+        'name' => 'Life Line Medicine Distributors',
+        'city' => 'Chitwan',
+        'phone' => '9812345678',
+        'pan_no' => '600112233',
+    ]);
+
+    $distributor->purchases()->create([
+        'bill_no' => 'BL-300',
+        'bill_date' => '2026-01-15',
+        'total_amount' => 500,
+    ])->ledgerEntry()->create([
+        'distributor_id' => $distributor->id,
+        'entry_date' => '2026-01-15',
+        'voucher_no' => 'BL-300',
+        'description' => 'Purchase Bill BL-300',
+        'type' => 'PURCHASE',
+        'dr_amount' => 500,
+        'cr_amount' => 0,
+    ]);
+
+    $this->actingAs($user)
+        ->get(route('distributors.ledger', $distributor))
+        ->assertSuccessful()
+        ->assertSeeInOrder(['Prapti Pharma', 'Koteshwor, Kathmandu', '01-4334455', 'Distributor', 'Life Line Medicine Distributors'])
+        ->assertSee('Ledger Period:')
+        ->assertSee('Opening Balance:')
+        ->assertSee('Prepared By')
+        ->assertSee('Authorised Signatory')
+        ->assertSee('Closing Balance c/d');
+});
+
 it('destroys a distributor with all history', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)

@@ -29,7 +29,7 @@
                     <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
                             <x-input-label for="amount" value="{{ __('Amount (Cr)') }}" />
-                            <x-text-input id="amount" name="amount" type="number" step="0.01" min="0.01"
+                            <x-text-input id="amount" name="amount" type="text" step="0.01" min="0.01"
                                 value="{{ old('amount') }}" class="mt-1 block w-full" required autofocus />
                             <x-input-error :messages="$errors->get('amount')" class="mt-2" />
                         </div>

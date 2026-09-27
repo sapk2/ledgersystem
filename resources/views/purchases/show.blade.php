@@ -80,11 +80,15 @@
                 <div class="mt-6 flex justify-between items-start">
                     <div class="text-sm text-gray-700">
                         <p class="text-xs font-semibold uppercase tracking-wide text-gray-500">Billed To</p>
-                        <p class="mt-1 text-lg font-semibold text-gray-900">{{ config('ledger.pharmacy_name') }}</p>
-                        @if (config('ledger.pharmacy_address'))
+                        <p class="mt-1 text-lg font-semibold text-gray-900">{{ $currentPharmacy?->name ?? config('ledger.pharmacy_name') }}</p>
+                        @if ($currentPharmacy)
+                            <p>{{ $currentPharmacy->addressLines() ? implode(', ', $currentPharmacy->addressLines()) : $currentPharmacy->address }}</p>
+                        @elseif (config('ledger.pharmacy_address'))
                             <p>{{ config('ledger.pharmacy_address') }}</p>
                         @endif
-                        @if (config('ledger.pharmacy_phone'))
+                        @if ($currentPharmacy?->phone)
+                            <p>Contact: {{ $currentPharmacy->phone }}</p>
+                        @elseif (config('ledger.pharmacy_phone'))
                             <p>Contact: {{ config('ledger.pharmacy_phone') }}</p>
                         @endif
                     </div>
@@ -187,7 +191,7 @@
                 </div>
 
                 <p class="mt-8 text-center text-xs text-gray-400">
-                    This is a computer generated invoice. {{ config('ledger.pharmacy_name') }}
+                    This is a computer generated invoice. {{ $currentPharmacy?->name ?? config('ledger.pharmacy_name') }}
                 </p>
             </div>
         </div>

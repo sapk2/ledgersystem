@@ -1,5 +1,7 @@
 <?php
 
+use App\Models\Pharmacy;
+use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -47,4 +49,45 @@ expect()->extend('toBeOne', function () {
 function something()
 {
     // ..
+}
+
+/**
+ * A signed-in pharmacy user. Authenticated up front so records created by the
+ * test are attached to the user's pharmacy by the tenancy model events.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function pharmacyUser(array $attributes = []): User
+{
+    $user = User::factory()->withPharmacy()->create($attributes);
+
+    test()->actingAs($user);
+
+    return $user;
+}
+
+/**
+ * A platform admin, optionally signed in.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function admin(array $attributes = [], bool $acting = false): User
+{
+    $user = User::factory()->admin()->create($attributes);
+
+    if ($acting) {
+        test()->actingAs($user);
+    }
+
+    return $user;
+}
+
+/**
+ * A second, unrelated pharmacy used for isolation assertions.
+ *
+ * @param  array<string, mixed>  $attributes
+ */
+function otherPharmacy(array $attributes = []): Pharmacy
+{
+    return Pharmacy::factory()->create($attributes);
 }

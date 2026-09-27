@@ -3,10 +3,9 @@
 use App\Models\Distributor;
 use App\Models\DistributorLedger;
 use App\Models\Payment;
-use App\Models\User;
 
 it('records a payment and creates a credit ledger entry', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)
@@ -34,7 +33,7 @@ it('records a payment and creates a credit ledger entry', function () {
 });
 
 it('validates payment amount is required and positive', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)
@@ -47,7 +46,7 @@ it('validates payment amount is required and positive', function () {
 });
 
 it('deleting a payment removes its ledger entry', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $payment = $distributor->payments()->create([

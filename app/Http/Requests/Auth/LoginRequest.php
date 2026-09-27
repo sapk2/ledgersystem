@@ -36,6 +36,9 @@ class LoginRequest extends FormRequest
     /**
      * Attempt to authenticate the request's credentials.
      *
+     * The same form serves every role. Admins are accepted outright; regular
+     * users additionally need a pharmacy that is still active.
+     *
      * @throws ValidationException
      */
     public function authenticate(): void
@@ -51,6 +54,27 @@ class LoginRequest extends FormRequest
         }
 
         RateLimiter::clear($this->throttleKey());
+
+        if (! Auth::user()->hasActivePharmacy()) {
+            $this->logout();
+
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Your pharmacy account is currently inactive. Please contact the administrator.',
+            ]);
+        }
+    }
+
+    /**
+     * Log out and discard the session created by a rejected login attempt.
+     */
+    private function logout(): void
+    {
+        Auth::guard('web')->logout();
+
+        $this->session()->invalidate();
+        $this->session()->regenerateToken();
     }
 
     /**

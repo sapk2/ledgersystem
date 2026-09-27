@@ -8,7 +8,6 @@ use App\Models\Medicine;
 use App\Models\Purchase;
 use App\Services\LedgerService;
 use Carbon\Carbon;
-use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -45,17 +44,6 @@ class PurchaseController extends Controller
         ]);
     }
 
-    /**
-     * Next auto-generated bill number for a distributor: first two letters of the
-     * distributor name (uppercase) plus six random digits, e.g. LI482913.
-     */
-    public function nextBillNumber(Request $request): JsonResponse
-    {
-        $distributor = Distributor::findOrFail($request->integer('distributor_id'));
-
-        return response()->json(['bill_no' => $this->generateBillNo($distributor)]);
-    }
-
     public function store(StorePurchaseRequest $request): RedirectResponse
     {
         $validated = $request->validated();
@@ -74,7 +62,7 @@ class PurchaseController extends Controller
 
             $purchase = Purchase::create([
                 'distributor_id' => $distributor->id,
-                'bill_no' => $this->generateBillNo($distributor),
+                'bill_no' => $validated['bill_no'],
                 'bill_date' => $validated['bill_date'],
                 'discount' => $discount,
                 'vat' => $vatPercent,
@@ -117,6 +105,8 @@ class PurchaseController extends Controller
     {
         $purchase->load('distributor', 'items.medicine');
 
+        abort_if($purchase->distributor === null, 404);
+
         return view('purchases.show', [
             'purchase' => $purchase,
             'aging' => $ledger->agingBuckets($purchase->distributor, Carbon::today()),
@@ -130,16 +120,5 @@ class PurchaseController extends Controller
 
         return redirect()->route('purchases.index')
             ->with('status', 'Bill deleted.');
-    }
-
-    private function generateBillNo(Distributor $distributor): string
-    {
-        $prefix = strtoupper(substr($distributor->name, 0, 2));
-
-        do {
-            $billNo = $prefix.random_int(100000, 999999);
-        } while (Purchase::where('bill_no', $billNo)->exists());
-
-        return $billNo;
     }
 }

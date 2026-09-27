@@ -1,4 +1,9 @@
 <x-guest-layout>
+    <div class="mb-6 text-center">
+        <h1 class="text-xl font-bold text-slate-900">Pharmacy Login</h1>
+        <p class="mt-1 text-sm text-slate-500">Sign in to your pharmacy account.</p>
+    </div>
+
     <!-- Session Status -->
     <x-auth-session-status class="mb-4" :status="session('status')" />
 

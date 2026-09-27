@@ -2,15 +2,17 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\BelongsToPharmacy;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
 class PurchaseItem extends Model
 {
-    use HasFactory;
+    use BelongsToPharmacy, HasFactory;
 
     protected $fillable = [
+        'pharmacy_id',
         'purchase_id',
         'medicine_id',
         'medicine_name',

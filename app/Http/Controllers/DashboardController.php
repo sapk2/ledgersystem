@@ -28,12 +28,18 @@ class DashboardController extends Controller
 
         $outstanding = 0.0;
         $aging = ['0_10' => 0.0, '11_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0];
+        $balances = [];
 
         foreach ($distributors as $distributor) {
             $totals = $ledgerTotals->get($distributor->id);
-            $balance = (float) $distributor->opening_balance
+            $balance = round(
+                (float) $distributor->opening_balance
                 + (float) ($totals?->total_dr ?? 0)
-                - (float) ($totals?->total_cr ?? 0);
+                - (float) ($totals?->total_cr ?? 0),
+                2
+            );
+
+            $balances[$distributor->id] = $balance;
 
             if ($balance <= 0) {
                 continue;
@@ -58,15 +64,24 @@ class DashboardController extends Controller
                 'id' => $distributor->id,
                 'name' => $distributor->name,
                 'city' => $distributor->city,
+                'phone' => $distributor->phone,
+                'pan_no' => $distributor->pan_no,
+                'balance' => $balances[$distributor->id],
+                'due' => max($balances[$distributor->id], 0),
+                'search' => mb_strtolower(implode(' ', array_filter([
+                    $distributor->name,
+                    $distributor->city,
+                    $distributor->phone,
+                    $distributor->pan_no,
+                ]))),
                 'summary_url' => route('distributors.ledger-summary', $distributor),
+                'ledger_url' => route('distributors.ledger', $distributor),
             ])->values(),
             'topDistributors' => $distributors
                 ->map(fn ($distributor) => [
                     'id' => $distributor->id,
                     'name' => $distributor->name,
-                    'balance' => (float) $distributor->opening_balance
-                        + (float) ($ledgerTotals->get($distributor->id)?->total_dr ?? 0)
-                        - (float) ($ledgerTotals->get($distributor->id)?->total_cr ?? 0),
+                    'balance' => $balances[$distributor->id],
                 ])
                 ->sortByDesc('balance')
                 ->take(5),

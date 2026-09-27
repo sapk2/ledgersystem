@@ -5,16 +5,15 @@ use App\Models\DistributorLedger;
 use App\Models\Medicine;
 use App\Models\Purchase;
 use App\Models\PurchaseItem;
-use App\Models\User;
 
 it('creates a purchase bill with items and a ledger entry', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
-    $prefix = strtoupper(substr($distributor->name, 0, 2));
 
     $this->actingAs($user)
         ->post(route('purchases.store'), [
             'distributor_id' => $distributor->id,
+            'bill_no' => 'INV-4471',
             'bill_date' => '2026-03-10',
             'items' => [
                 ['medicine_name' => 'Paracetamol 500mg', 'quantity' => 10, 'rate' => 25.50],
@@ -26,7 +25,7 @@ it('creates a purchase bill with items and a ledger entry', function () {
     $purchase = $distributor->purchases()->firstOrFail();
 
     expect($purchase->total_amount)->toBe('455.00')
-        ->and($purchase->bill_no)->toMatch('/^'.$prefix.'\d{6}$/')
+        ->and($purchase->bill_no)->toBe('INV-4471')
         ->and($purchase->items)->toHaveCount(2)
         ->and((float) PurchaseItem::where('purchase_id', $purchase->id)->sum('amount'))->toBe(455.0);
 
@@ -41,15 +40,16 @@ it('creates a purchase bill with items and a ledger entry', function () {
         ->and($entry->voucher_no)->toBe($purchase->bill_no);
 });
 
-it('auto-generates bill numbers from the first two letters of the distributor name plus six random digits', function () {
-    $user = User::factory()->create();
+it('stores the bill number entered by the user', function () {
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create(['name' => 'Life Line Medicine Distributors']);
 
-    foreach (['2026-03-10', '2026-03-11'] as $date) {
+    foreach (['LI/2026/0041', 'LI/2026/0042'] as $index => $billNo) {
         $this->actingAs($user)
             ->post(route('purchases.store'), [
                 'distributor_id' => $distributor->id,
-                'bill_date' => $date,
+                'bill_no' => $billNo,
+                'bill_date' => '2026-03-1'.$index,
                 'items' => [
                     ['medicine_name' => 'Paracetamol 500mg', 'quantity' => 1, 'rate' => 10],
                 ],
@@ -57,20 +57,59 @@ it('auto-generates bill numbers from the first two letters of the distributor na
             ->assertRedirect();
     }
 
-    $billNumbers = $distributor->purchases()->pluck('bill_no');
-
-    expect($billNumbers)->toHaveCount(2)
-        ->and($billNumbers->every(fn (string $no) => preg_match('/^LI\d{6}$/', $no) === 1))->toBeTrue()
-        ->and($billNumbers->unique())->toHaveCount(2);
+    expect($distributor->purchases()->pluck('bill_no')->all())->toBe(['LI/2026/0041', 'LI/2026/0042']);
 });
 
-it('applies discount and VAT when storing a purchase bill', function () {
-    $user = User::factory()->create();
+it('requires a bill number when storing a purchase bill', function () {
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)
         ->post(route('purchases.store'), [
             'distributor_id' => $distributor->id,
+            'bill_no' => '',
+            'bill_date' => '2026-03-10',
+            'items' => [
+                ['medicine_name' => 'Paracetamol 500mg', 'quantity' => 1, 'rate' => 10],
+            ],
+        ])
+        ->assertSessionHasErrors('bill_no');
+
+    expect($distributor->purchases()->count())->toBe(0);
+});
+
+it('rejects a duplicate bill number', function () {
+    $user = pharmacyUser();
+    $distributor = Distributor::factory()->create();
+
+    $distributor->purchases()->create([
+        'bill_no' => 'INV-1000',
+        'bill_date' => '2026-02-01',
+        'total_amount' => 100,
+    ]);
+
+    $this->actingAs($user)
+        ->post(route('purchases.store'), [
+            'distributor_id' => $distributor->id,
+            'bill_no' => 'INV-1000',
+            'bill_date' => '2026-03-10',
+            'items' => [
+                ['medicine_name' => 'Paracetamol 500mg', 'quantity' => 1, 'rate' => 10],
+            ],
+        ])
+        ->assertSessionHasErrors('bill_no');
+
+    expect($distributor->purchases()->count())->toBe(1);
+});
+
+it('applies discount and VAT when storing a purchase bill', function () {
+    $user = pharmacyUser();
+    $distributor = Distributor::factory()->create();
+
+    $this->actingAs($user)
+        ->post(route('purchases.store'), [
+            'distributor_id' => $distributor->id,
+            'bill_no' => 'BL-103',
             'bill_date' => '2026-03-10',
             'discount' => 50,
             'vat' => 13,
@@ -95,7 +134,7 @@ it('applies discount and VAT when storing a purchase bill', function () {
 });
 
 it('auto-creates medicines from bill items', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)
@@ -113,7 +152,7 @@ it('auto-creates medicines from bill items', function () {
 });
 
 it('validates that a purchase requires at least one item', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $this->actingAs($user)
@@ -127,7 +166,7 @@ it('validates that a purchase requires at least one item', function () {
 });
 
 it('deleting a purchase removes its ledger entry', function () {
-    $user = User::factory()->create();
+    $user = pharmacyUser();
     $distributor = Distributor::factory()->create();
 
     $purchase = $distributor->purchases()->create([

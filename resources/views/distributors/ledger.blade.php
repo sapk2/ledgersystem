@@ -29,35 +29,64 @@
         $rows = $ledger['rows'];
         $opening = (float) $ledger['opening_balance_float'];
         $closing = (float) $ledger['closing_balance_float'];
+        $periodFrom = $from ? \Illuminate\Support\Carbon::parse($from)->format('d-m-Y') : 'Beginning';
+        $periodTo = $to ? \Illuminate\Support\Carbon::parse($to)->format('d-m-Y') : 'Today';
     @endphp
 
     <style>
-        @media print {
-            body { background: white !important; }
-            nav, header, .print\:hidden { display: none !important; }
-            .ledger-sheet { box-shadow: none !important; border-radius: 0 !important; padding: 0 !important; }
-        }
         .ledger-table { border-collapse: collapse; width: 100%; font-size: 13px; }
-        .ledger-table th, .ledger-table td {
-            border: 1px solid #111;
-            padding: 5px 8px;
+        .ledger-table th,
+        .ledger-table td {
+            border: 1px solid #111827;
+            padding: 6px 10px;
             text-align: right;
+            vertical-align: top;
         }
-        .ledger-table th { background: #f3f4f6; font-weight: 700; }
-        .ledger-table th:nth-child(1),
-        .ledger-table th:nth-child(2),
-        .ledger-table th:nth-child(3) { text-align: left; }
+        .ledger-table thead th {
+            background: #f3f4f6;
+            border-bottom: 2px solid #111827;
+            font-size: 12px;
+            font-weight: 700;
+            letter-spacing: .04em;
+            text-transform: uppercase;
+        }
+        .ledger-table th:nth-child(-n+3),
+        .ledger-table td:nth-child(-n+3) { text-align: left; }
+        .ledger-table th:last-child,
+        .ledger-table td:last-child { border-left: 2px solid #111827; }
         .ledger-table td:nth-child(1),
         .ledger-table td:nth-child(2),
-        .ledger-table td:nth-child(3) { text-align: left; }
+        .ledger-table td:nth-child(4),
+        .ledger-table td:nth-child(5),
+        .ledger-table td:nth-child(6) { white-space: nowrap; }
+        .ledger-table tbody tr:nth-child(even) { background: #f9fafb; }
+        .ledger-table tfoot td { background: #f9fafb; border-top: 2px solid #111827; }
+        .ledger-keep { break-inside: avoid; page-break-inside: avoid; }
+
         @media print {
-            .ledger-table th { background: #fff !important; }
-            .ledger-sheet { font-family: Georgia, 'Times New Roman', serif; }
+            @page { size: A4 portrait; margin: 12mm 10mm; }
+            body { background: white !important; }
+            nav, header, .print\:hidden { display: none !important; }
+            .ledger-page { padding: 0 !important; }
+            .ledger-page-inner { max-width: none !important; margin: 0 !important; padding: 0 !important; }
+            .ledger-sheet { border-radius: 0 !important; box-shadow: none !important; }
+            .ledger-sheet-body { padding: 0 !important; }
+            .ledger-sheet { font-family: Georgia, 'Times New Roman', serif; font-size: 12px; }
+            .ledger-table { font-size: 11.5px; }
+            .ledger-table th,
+            .ledger-table td { padding: 4px 8px; }
+            .ledger-table thead { display: table-header-group; }
+            .ledger-table tfoot { display: table-row-group; }
+            .ledger-table tr { break-inside: avoid; page-break-inside: avoid; }
+            .ledger-table thead th { background: #fff !important; }
+            .ledger-table tbody tr:nth-child(even) { background: transparent !important; }
+            .ledger-table tfoot td { background: #fff !important; }
+            .ledger-header { break-after: avoid; page-break-after: avoid; }
         }
     </style>
 
-    <div class="py-10">
-        <div class="max-w-7xl mx-auto sm:px-6 lg:px-8">
+    <div class="py-10 ledger-page">
+        <div class="max-w-5xl mx-auto sm:px-6 lg:px-8 ledger-page-inner">
             @if (session('status'))
                 <div class="mb-4 px-4 py-3 bg-green-50 border border-green-200 text-sm text-green-700 rounded-md print:hidden">
                     {{ session('status') }}
@@ -127,80 +156,122 @@
             </div>
 
             <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg ledger-sheet">
-                <div class="p-8 sm:p-10">
-                    <div class="text-center mb-6">
-                        <h1 class="text-2xl font-bold uppercase tracking-wide text-gray-900">Distributor Ledger</h1>
-                        <p class="mt-1 text-lg font-semibold text-gray-800">{{ $distributor->name }}</p>
-                        <p class="text-sm text-gray-600">
-                            {{ $distributor->address ? $distributor->address . ', ' : '' }}{{ $distributor->city }}
-                            {{ $distributor->phone ? ' • ' . $distributor->phone : '' }}
+                <div class="p-8 sm:p-10 ledger-sheet-body">
+                    {{-- Pharmacy letterhead --}}
+                    <div class="ledger-header">
+                        @include('partials.pharmacy-letterhead')
+                    </div>
+
+                    {{-- Distributor and document details --}}
+                    <div class="mt-6 ledger-keep flex flex-wrap items-start justify-between gap-6">
+                        <div>
+                            <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">Distributor</p>
+                            <p class="mt-1 text-xl font-bold leading-tight text-gray-900">{{ $distributor->name }}</p>
+                            <p class="mt-1 text-sm text-gray-700">
+                                {{ $distributor->address ? $distributor->address . ', ' : '' }}{{ $distributor->city ?: '—' }}
+                            </p>
+                            <p class="text-sm text-gray-700">
+                                @if ($distributor->phone)
+                                    <span>Contact: {{ $distributor->phone }}</span>
+                                @endif
+                                @if ($distributor->pan_no)
+                                    <span class="hidden print:inline"> &nbsp;•&nbsp; PAN No: {{ $distributor->pan_no }}</span>
+                                @endif
+                            </p>
+                        </div>
+                        <div class="text-right">
+                            <p class="text-xs font-semibold uppercase tracking-widest text-gray-500">Distributor Ledger</p>
+                            <p class="mt-1 text-sm text-gray-700">Currency: {{ config('ledger.currency') }}</p>
+                            <p class="text-sm text-gray-700">Printed on: {{ now()->format('d-m-Y') }}</p>
+                        </div>
+                    </div>
+
+                    {{-- Period --}}
+                    <div class="mt-5 ledger-keep flex flex-wrap items-center justify-between gap-3 border-y border-gray-300 py-2">
+                        <p class="text-sm text-gray-700">
+                            <span class="font-semibold text-gray-900">Ledger Period:</span>
+                            {{ $periodFrom }} to {{ $periodTo }}
                         </p>
-                        <p class="mt-1 text-sm text-gray-600">
-                            Period: {{ $from ?: 'Beginning' }} — {{ $to ?: 'Today' }}
+                        <p class="text-sm text-gray-700">
+                            <span class="font-semibold text-gray-900">Opening Balance:</span>
+                            {{ number_format($opening, 2) }}
                         </p>
                     </div>
 
-                    <table class="ledger-table">
-                        <thead>
-                            <tr>
-                                <th class="w-24">Date</th>
-                                <th class="w-32">Voucher No</th>
-                                <th>Description</th>
-                                <th class="w-28">Dr (Purchase)</th>
-                                <th class="w-28">Cr (Payment)</th>
-                                <th class="w-28">Balance</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @if ($opening != 0)
+                    {{-- Ledger --}}
+                    <div class="mt-5">
+                        <table class="ledger-table">
+                            <thead>
                                 <tr>
-                                    <td></td>
-                                    <td></td>
-                                    <td>To Balance b/d</td>
-                                    <td>{{ number_format($opening, 2) }}</td>
-                                    <td></td>
-                                    <td>{{ number_format($opening, 2) }}</td>
+                                    <th class="w-24">Date</th>
+                                    <th class="w-32">Voucher No</th>
+                                    <th>Description</th>
+                                    <th class="w-28">Dr (Purchase)</th>
+                                    <th class="w-28">Cr (Payment)</th>
+                                    <th class="w-28">Balance</th>
                                 </tr>
-                            @endif
+                            </thead>
+                            <tbody>
+                                @if ($opening != 0)
+                                    <tr>
+                                        <td></td>
+                                        <td></td>
+                                        <td>To Balance b/d</td>
+                                        <td>{{ number_format($opening, 2) }}</td>
+                                        <td></td>
+                                        <td class="font-semibold">{{ number_format($opening, 2) }}</td>
+                                    </tr>
+                                @endif
 
-                            @forelse ($rows as $entry)
+                                @forelse ($rows as $entry)
+                                    <tr>
+                                        <td>{{ $entry->entry_date->format('d-m-Y') }}</td>
+                                        <td>{{ $entry->voucher_no }}</td>
+                                        <td>{{ $entry->description }}</td>
+                                        <td>{{ $entry->dr_amount > 0 ? number_format((float) $entry->dr_amount, 2) : '' }}</td>
+                                        <td>{{ $entry->cr_amount > 0 ? number_format((float) $entry->cr_amount, 2) : '' }}</td>
+                                        <td class="font-semibold">{{ number_format($entry->running_balance, 2) }}</td>
+                                    </tr>
+                                @empty
+                                    <tr>
+                                        <td colspan="6" class="py-6 text-center text-gray-500">
+                                            No entries {{ ($opening == 0) ? 'yet' : 'in this period' }}.
+                                        </td>
+                                    </tr>
+                                @endforelse
+                            </tbody>
+                            <tfoot>
                                 <tr>
-                                    <td>{{ $entry->entry_date->format('d-m-Y') }}</td>
-                                    <td>{{ $entry->voucher_no }}</td>
-                                    <td>{{ $entry->description }}</td>
-                                    <td>{{ $entry->dr_amount > 0 ? number_format((float) $entry->dr_amount, 2) : '' }}</td>
-                                    <td>{{ $entry->cr_amount > 0 ? number_format((float) $entry->cr_amount, 2) : '' }}</td>
-                                    <td class="font-semibold">{{ number_format($entry->running_balance, 2) }}</td>
+                                    <td colspan="3" class="text-right font-bold">Total</td>
+                                    <td class="font-bold">{{ $ledger['total_dr'] }}</td>
+                                    <td class="font-bold">{{ $ledger['total_cr'] }}</td>
+                                    <td class="font-bold {{ $closing > 0 ? 'text-red-700' : '' }}">{{ $ledger['closing_balance'] }}</td>
                                 </tr>
-                            @empty
                                 <tr>
-                                    <td colspan="6" class="text-center text-gray-500 py-6">
-                                        No entries {{ ($opening == 0) ? 'yet' : 'in this period' }}.
-                                    </td>
+                                    <td colspan="5" class="text-right font-semibold">Closing Balance c/d</td>
+                                    <td class="font-bold">{{ $ledger['closing_balance'] }}</td>
                                 </tr>
-                            @endforelse
+                            </tfoot>
+                        </table>
+                    </div>
 
-                            <tr>
-                                <td colspan="3" class="font-bold">Total</td>
-                                <td class="font-bold">{{ $ledger['total_dr'] }}</td>
-                                <td class="font-bold">{{ $ledger['total_cr'] }}</td>
-                                <td class="font-bold {{ $closing > 0 ? 'text-red-700' : '' }}">{{ $ledger['closing_balance'] }}</td>
-                            </tr>
-                            <tr>
-                                <td colspan="5" class="font-semibold">Closing Balance c/d</td>
-                                <td class="font-bold">{{ $ledger['closing_balance'] }}</td>
-                            </tr>
-                        </tbody>
-                    </table>
-
-                    <div class="mt-8 grid grid-cols-2 gap-8">
-                        <div class="text-center">
-                            <div class="border-t border-gray-800 pt-1 text-sm text-gray-600">Prepared By</div>
+                    {{-- Signatures --}}
+                    <div class="mt-12 grid grid-cols-2 gap-8 sm:gap-16 ledger-keep">
+                        <div>
+                            <div class="h-12"></div>
+                            <div class="border-t border-gray-800 pt-1 text-center text-sm font-semibold text-gray-700">Prepared By</div>
+                            <div class="text-center text-xs text-gray-500">{{ $currentPharmacy?->name ?? config('ledger.pharmacy_name') }}</div>
                         </div>
-                        <div class="text-center">
-                            <div class="border-t border-gray-800 pt-1 text-sm text-gray-600">Authorised Signatory</div>
+                        <div>
+                            <div class="h-12"></div>
+                            <div class="border-t border-gray-800 pt-1 text-center text-sm font-semibold text-gray-700">Authorised Signatory</div>
+                            <div class="text-center text-xs text-gray-500">For {{ $currentPharmacy?->name ?? config('ledger.pharmacy_name') }}</div>
                         </div>
                     </div>
+
+                    <p class="mt-10 border-t border-gray-200 pt-3 text-center text-xs text-gray-400">
+                        This is a computer generated ledger statement of {{ $currentPharmacy?->name ?? config('ledger.pharmacy_name') }}.
+                    </p>
                 </div>
             </div>
         </div>
