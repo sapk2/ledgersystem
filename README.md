@@ -56,3 +56,45 @@ If you discover a security vulnerability within Laravel, please send an e-mail t
 ## License
 
 The Laravel framework is open-sourced software licensed under the [MIT license](https://opensource.org/licenses/MIT).
+Summary:
+
+A web-based Distributor Ledger & Billing System designed to digitize traditional manual ledger books used in pharmacies. The system allows users to manage distributor-wise transactions, track purchases and payments, and generate real-time ledger reports with accurate running balances.
+
+🎯 Key Features
+📘 Alphabetical Distributor Ledger (A–Z)
+Organize and manage distributors just like a physical ledger book.
+🔍 Smart Search & Filter
+Instantly retrieve ledger details by typing a distributor’s name.
+🧾 Invoice (Purchase) Management
+Create detailed bills with multiple medicine entries, including quantity, rate, batch, and expiry.
+💊 Medicine-wise Tracking
+Maintain records of purchased medicines from each distributor.
+💰 Payment Tracking
+Record payments and automatically update ledger balances.
+⚖️ Automatic Ledger Calculation
+Real-time Dr/Cr entries with running balance calculation.
+🖨️ Print-Ready Ledger Reports
+Generate clean, paper-style ledger reports for printing.
+📊 Aging Analysis (Optional)
+Track outstanding dues (0–30, 30–60, 60–90, 90+ days).
+🧠 System Concept
+
+This system replicates a traditional accounting ledger while integrating it with a modern billing system, ensuring:
+
+Accurate financial tracking
+Easy distributor management
+Faster data retrieval compared to manual books
+⚙️ Tech Stack
+Backend: Laravel
+Frontend: Blade + JavaScript
+Database: MySQL
+💡 Use Case
+
+Ideal for:
+
+Pharmacies
+Medical distributors
+Small retail businesses managing supplier credit
+🚀 Outcome
+
+This system transforms manual ledger bookkeeping into a fast, searchable, and automated digital solution, reducing errors and improving efficiency.
