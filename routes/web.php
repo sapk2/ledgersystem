@@ -25,6 +25,9 @@ Route::middleware(['auth', 'verified', 'pharmacy'])->group(function () {
     Route::get('/distributors/{distributor}/ledger-summary', [DistributorController::class, 'ledgerSummary'])
         ->name('distributors.ledger-summary');
 
+    Route::get('/distributors/search', [DistributorController::class, 'search'])
+        ->name('distributors.search');
+
     Route::resource('distributors', DistributorController::class)
         ->except(['show']);
 

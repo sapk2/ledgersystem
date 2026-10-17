@@ -29,6 +29,7 @@ class DashboardController extends Controller
         $outstanding = 0.0;
         $aging = ['0_10' => 0.0, '11_30' => 0.0, '31_60' => 0.0, '61_90' => 0.0, '90_plus' => 0.0];
         $balances = [];
+        $dueByDistributor = [];
 
         foreach ($distributors as $distributor) {
             $totals = $ledgerTotals->get($distributor->id);
@@ -47,9 +48,30 @@ class DashboardController extends Controller
 
             $outstanding += $balance;
 
+            $dueByDistributor[] = [
+                'id' => $distributor->id,
+                'name' => $distributor->name,
+                'amount' => $balance,
+            ];
+
             foreach (array_intersect_key($ledger->agingBuckets($distributor, $today), $aging) as $key => $value) {
                 $aging[$key] += $value;
             }
+        }
+
+        // Pie chart data: the largest outstanding dues, with the tail grouped so
+        // the chart stays readable no matter how many distributors there are.
+        $dueByDistributor = collect($dueByDistributor)->sortByDesc('amount')->values();
+        $dueDistribution = $dueByDistributor->take(7);
+        $otherDues = (float) $dueByDistributor->slice(7)->sum('amount');
+
+        if ($otherDues > 0) {
+            $dueDistribution->push([
+                'id' => null,
+                'name' => 'Other distributors',
+                'amount' => round($otherDues, 2),
+                'others' => true,
+            ]);
         }
 
         return view('dashboard', [
@@ -59,6 +81,7 @@ class DashboardController extends Controller
             'paymentTotal' => (float) Payment::sum('amount'),
             'outstanding' => round($outstanding, 2),
             'aging' => array_map(fn (float $value) => round($value, 2), $aging),
+            'dueDistribution' => $dueDistribution,
             'recentPurchases' => Purchase::with('distributor')->latest()->limit(6)->get(),
             'searchDistributors' => $distributors->map(fn ($distributor) => [
                 'id' => $distributor->id,
@@ -71,6 +94,7 @@ class DashboardController extends Controller
                 'search' => mb_strtolower(implode(' ', array_filter([
                     $distributor->name,
                     $distributor->city,
+                    $distributor->address,
                     $distributor->phone,
                     $distributor->pan_no,
                 ]))),

@@ -46,16 +46,26 @@ class Distributor extends Model
         return $this->hasMany(DistributorLedger::class);
     }
 
+    /**
+     * Match a distributor by name, city, address, phone or PAN.
+     *
+     * The term is always passed as a bound parameter, so the wildcards and any
+     * quotes in user input can never alter the generated SQL.
+     */
     public function scopeSearch(Builder $query, ?string $term): Builder
     {
-        if (! $term) {
+        $term = trim((string) $term);
+
+        if ($term === '') {
             return $query;
         }
 
         return $query->where(function (Builder $search) use ($term): void {
             $search->where('name', 'like', "%{$term}%")
                 ->orWhere('city', 'like', "%{$term}%")
-                ->orWhere('phone', 'like', "%{$term}%");
+                ->orWhere('address', 'like', "%{$term}%")
+                ->orWhere('phone', 'like', "%{$term}%")
+                ->orWhere('pan_no', 'like', "%{$term}%");
         });
     }
 }

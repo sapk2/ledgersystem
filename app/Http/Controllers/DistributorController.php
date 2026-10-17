@@ -8,8 +8,10 @@ use App\Models\Distributor;
 use App\Models\DistributorLedger;
 use App\Services\LedgerService;
 use Carbon\Carbon;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Collection;
 use Illuminate\View\View;
 
 class DistributorController extends Controller
@@ -26,18 +28,10 @@ class DistributorController extends Controller
             ->orderBy('name')
             ->get();
 
-        $ledgerTotals = DistributorLedger::query()
-            ->select('distributor_id')
-            ->selectRaw('SUM(dr_amount) as total_dr')
-            ->selectRaw('SUM(cr_amount) as total_cr')
-            ->groupBy('distributor_id')
-            ->get()
-            ->keyBy('distributor_id');
+        $ledgerTotals = $this->ledgerTotals();
 
         $withBalance = $distributors->map(function (Distributor $distributor) use ($ledgerTotals) {
-            $distributor->balance = (float) $distributor->opening_balance
-                + (float) ($ledgerTotals->get($distributor->id)?->total_dr ?? 0)
-                - (float) ($ledgerTotals->get($distributor->id)?->total_cr ?? 0);
+            $distributor->balance = $this->balanceFor($distributor, $ledgerTotals);
 
             return $distributor;
         });
@@ -56,6 +50,72 @@ class DistributorController extends Controller
                 ];
             })->values(),
         ]);
+    }
+
+    /**
+     * JSON lookup used by the dashboard live search. Reuses the same
+     * Distributor::search() scope as the rest of the application.
+     */
+    public function search(Request $request): JsonResponse
+    {
+        $term = $request->string('q')->trim()->toString();
+
+        if ($term === '') {
+            return response()->json(['q' => '', 'results' => []]);
+        }
+
+        $ledgerTotals = $this->ledgerTotals();
+
+        $results = Distributor::query()
+            ->search($term)
+            ->orderByRaw('name LIKE ? DESC', [$term.'%'])
+            ->orderBy('name')
+            ->limit(10)
+            ->get()
+            ->map(fn (Distributor $distributor): array => [
+                'id' => $distributor->id,
+                'name' => $distributor->name,
+                'city' => $distributor->city,
+                'phone' => $distributor->phone,
+                'pan_no' => $distributor->pan_no,
+                'due' => max($this->balanceFor($distributor, $ledgerTotals), 0),
+                'ledger_url' => route('distributors.ledger', $distributor),
+                'summary_url' => route('distributors.ledger-summary', $distributor),
+            ])
+            ->values();
+
+        return response()->json(['q' => $term, 'results' => $results]);
+    }
+
+    /**
+     * Ledger debit/credit totals for every visible distributor, keyed by id.
+     *
+     * @return Collection<int, DistributorLedger>
+     */
+    private function ledgerTotals(): Collection
+    {
+        return DistributorLedger::query()
+            ->select('distributor_id')
+            ->selectRaw('SUM(dr_amount) as total_dr')
+            ->selectRaw('SUM(cr_amount) as total_cr')
+            ->groupBy('distributor_id')
+            ->get()
+            ->keyBy('distributor_id');
+    }
+
+    /**
+     * @param  Collection<int, DistributorLedger>  $ledgerTotals
+     */
+    private function balanceFor(Distributor $distributor, Collection $ledgerTotals): float
+    {
+        $totals = $ledgerTotals->get($distributor->id);
+
+        return round(
+            (float) $distributor->opening_balance
+            + (float) ($totals?->total_dr ?? 0)
+            - (float) ($totals?->total_cr ?? 0),
+            2
+        );
     }
 
     public function create(): View

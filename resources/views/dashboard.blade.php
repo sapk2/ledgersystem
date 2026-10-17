@@ -138,7 +138,8 @@
             </div>
 
             {{-- Distributor ledger search --}}
-            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6" x-data="dashboardLedgerSearch(@js($searchDistributors))">
+            <div class="bg-white overflow-hidden shadow-sm sm:rounded-lg p-6"
+                x-data="dashboardLedgerSearch(@js($searchDistributors), @js(route('distributors.search')))">
                 <div class="flex items-center gap-3 mb-4">
                     <div class="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
                         <svg class="h-5 w-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -147,7 +148,7 @@
                     </div>
                     <div>
                         <h3 class="text-lg font-semibold text-gray-900">Search Distributor Ledger</h3>
-                        <p class="text-sm text-gray-500">Search by name, city, phone or PAN — then press <kbd class="px-1.5 py-0.5 rounded border border-gray-300 bg-gray-100 text-[11px] font-sans">Enter</kbd> to open the ledger.</p>
+                        <p class="text-sm text-gray-500">Search by name, city, address, phone or PAN. Results filter as you type — press <kbd class="px-1.5 py-0.5 rounded border border-gray-300 bg-gray-100 text-[11px] font-sans">Enter</kbd> to open the ledger.</p>
                     </div>
                 </div>
                 <div @click.outside="close()">
@@ -159,14 +160,23 @@
                                 </svg>
                             </div>
                             <x-text-input id="dashboard-ledger-search" x-ref="search" type="text" x-model="query"
-                                @input="onInput()" @focus="open = true" @keydown.arrow-down.prevent="move(1)"
-                                @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="onEnter()"
+                                @input="onInput()" @focus="onFocus()" @keydown.arrow-down.prevent="move(1)"
+                                @keydown.arrow-up.prevent="move(-1)" @keydown.enter.prevent="onSearch()"
                                 @keydown.escape="close()"
                                 role="combobox" aria-controls="dashboard-ledger-results" x-bind:aria-expanded="open"
-                                autocomplete="off"
-                                placeholder="Type a name, city, phone or PAN…"
-                                class="w-full pl-9" />
-                            <button type="button" x-show="query !== ''" x-cloak @click="clearQuery()"
+                                aria-autocomplete="list" autocomplete="off"
+                                placeholder="Type a name, city, address, phone or PAN…"
+                                class="w-full pl-9 pr-10" />
+
+                            <div x-show="searching || pending" x-cloak class="pointer-events-none absolute inset-y-0 right-0 flex items-center pr-3">
+                                <svg class="h-4 w-4 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                    <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                    <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                </svg>
+                                <span class="sr-only">Searching…</span>
+                            </div>
+
+                            <button type="button" x-show="query !== '' && !searching && !pending" x-cloak @click="clearQuery()"
                                 aria-label="Clear search"
                                 class="absolute inset-y-0 right-0 flex items-center px-3 text-gray-400 hover:text-gray-600">
                                 <svg class="h-4 w-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -174,7 +184,7 @@
                                 </svg>
                             </button>
 
-                            <div id="dashboard-ledger-results" x-show="open" x-cloak @click.outside="open = false"
+                            <div id="dashboard-ledger-results" x-show="open" x-cloak
                                 class="absolute z-20 mt-1 w-full bg-white border border-gray-200 rounded-lg shadow-xl overflow-hidden">
                                 <template x-if="term && matches.length">
                                     <div class="border-b border-gray-100 bg-gray-50 px-4 py-2 text-xs font-semibold uppercase tracking-wide text-gray-500">
@@ -205,11 +215,22 @@
                                     </template>
                                 </ul>
 
-                                <div x-show="term && matches.length === 0" class="px-4 py-4 text-sm text-gray-500">
-                                    No distributor matches “<span class="font-medium text-gray-700" x-text="term"></span>”.
-                                    <a href="{{ route('distributors.index') }}" class="mt-1 block text-indigo-600 hover:text-indigo-800">
+                                <div x-show="term && !searching && !pending && matches.length === 0" class="px-4 py-4 text-sm">
+                                    <p class="font-medium text-gray-700">No distributor found.</p>
+                                    <p class="mt-0.5 text-xs text-gray-500">
+                                        Nothing matches “<span class="font-medium text-gray-600" x-text="term"></span>”.
+                                    </p>
+                                    <a href="{{ route('distributors.index') }}" class="mt-2 inline-block font-medium text-indigo-600 hover:text-indigo-800">
                                         Browse the full ledger list →
                                     </a>
+                                </div>
+
+                                <div x-show="term && (searching || pending) && matches.length === 0" class="flex items-center gap-2 px-4 py-4 text-sm text-gray-500">
+                                    <svg class="h-4 w-4 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                                        <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4" />
+                                        <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
+                                    </svg>
+                                    Searching…
                                 </div>
 
                                 <div x-show="!term && recent.length" class="p-2">
@@ -226,13 +247,12 @@
                                 </div>
 
                                 <div x-show="!term && !recent.length" class="px-4 py-3 text-sm text-gray-500">
-                                    Start typing to search <span x-text="distributors.length"></span> distributors.
+                                    Start typing to search your distributors by name, city, address, phone or PAN.
                                 </div>
                             </div>
                         </div>
 
-                        <x-primary-button type="button" @click="onEnter()" x-bind:disabled="!term"
-                            x-bind:class="term ? '' : 'opacity-50 cursor-not-allowed'"
+                        <x-primary-button type="button" @click="onSearch()"
                             class="sm:self-start">{{ __('Search') }}</x-primary-button>
                     </div>
                     <p class="mt-2 text-xs text-gray-500" x-show="!current" x-cloak>
@@ -262,7 +282,7 @@
                 <div x-show="error" x-cloak
                     class="mt-4 flex flex-wrap items-center justify-between gap-3 rounded-md border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">
                     <span>Could not load the ledger. Please check your connection and try again.</span>
-                    <button type="button" @click="search()" class="font-semibold underline">Retry</button>
+                    <button type="button" @click="current && load(current)" class="font-semibold underline">Retry</button>
                 </div>
 
                 <div id="dashboard-ledger" class="mt-4">
@@ -409,26 +429,46 @@
                     </div>
                 </div>
             </div>
+
+            {{-- Outstanding dues by distributor --}}
+            <x-due-distribution-chart :slices="$dueDistribution" />
         </div>
     </div>
 </x-app-layout>
 
 <script>
-    function dashboardLedgerSearch(distributors) {
+    function dashboardLedgerSearch(all, searchUrl) {
         return {
-            distributors,
+            // Distributors embedded at render time. Used for the recent list and for
+            // instant feedback before the debounced request comes back.
+            all: Array.isArray(all) ? all : [],
+            searchUrl,
+
+            // Live results returned by the server, plus the term they belong to so a
+            // stale response can never be shown against a newer query.
+            results: [],
+            resultsTerm: null,
+
             query: '',
             current: null,
             open: false,
             loading: false,
+            searching: false,
+            pending: false,
             loaded: false,
             error: false,
             active: 0,
-            recent: this.readRecent(),
-            limit: 8,
+            recent: [],
+            limit: 10,
             storageKey: 'dashboard-recent-distributors',
+            debounceMs: 350,
+            debounceTimer: null,
+            searchController: null,
 
             init() {
+                // readRecent() must run after the data object exists; calling it from a
+                // property initialiser passed the wrong `this` and broke the whole component.
+                this.recent = this.readRecent();
                 this.$nextTick(() => this.bindShortcut());
             },
 
@@ -446,50 +486,133 @@
                 return this.query.trim().toLowerCase();
             },
 
+            /** Instant matches from the embedded list while the request is in flight. */
+            get localMatches() {
+                if (!this.term) return [];
+
+                return this.all
+                    .filter((d) => d.search.includes(this.term))
+                    .slice(0, this.limit);
+            },
+
+            /** Server results once they arrive, local matches in the meantime. */
             get matches() {
                 if (!this.term) return [];
-                const term = this.term;
 
-                return this.distributors
-                    .filter((d) => d.search.includes(term))
-                    .map((d) => {
-                        const name = d.name.toLowerCase();
-                        const score = name.startsWith(term) ? 0 : name.includes(term) ? 1 : 2;
-                        return { d, score };
-                    })
-                    .sort((a, b) => a.score - b.score || a.d.name.localeCompare(b.d.name))
-                    .slice(0, this.limit)
-                    .map((row) => row.d);
+                if (this.pending) return this.localMatches;
+
+                return this.resultsTerm === this.term ? this.results : this.localMatches;
             },
 
             get matchCount() {
-                const total = this.term
-                    ? this.distributors.filter((d) => d.search.includes(this.term)).length
-                    : 0;
+                const shown = this.matches.length;
 
-                if (!total) return '';
-                const shown = Math.min(total, this.limit);
-                return total === 1 ? '1 distributor' : shown < total ? `${shown} of ${total} distributors` : `${total} distributors`;
+                if (!this.term || !shown) return '';
+                if (shown === 1) return '1 distributor';
+
+                return shown >= this.limit ? `${this.limit}+ distributors` : `${shown} distributors`;
             },
 
             onInput() {
                 this.open = true;
                 this.active = 0;
+                this.error = false;
 
-                if (this.term && this.matches.length === 1) {
-                    this.load(this.matches[0]);
-                }
-            },
+                if (!this.term) {
+                    this.cancelSearch();
+                    this.results = [];
+                    this.resultsTerm = null;
+                    this.pending = false;
 
-            onEnter() {
-                if (!this.term) return;
-
-                if (this.open && this.matches.length) {
-                    this.load(this.matches[Math.min(this.active, this.matches.length - 1)]);
                     return;
                 }
 
-                this.search();
+                // Show the embedded matches immediately, then refine them with the server.
+                this.pending = true;
+                this.scheduleSearch();
+            },
+
+            onFocus() {
+                this.open = true;
+
+                if (this.term && !this.pending && this.resultsTerm !== this.term) {
+                    this.pending = true;
+                    this.scheduleSearch();
+                }
+            },
+
+            scheduleSearch() {
+                this.clearTimer();
+                this.debounceTimer = setTimeout(() => this.runSearch(), this.debounceMs);
+            },
+
+            async runSearch() {
+                const term = this.term;
+                if (!term) return;
+
+                this.clearTimer();
+                this.abortSearch();
+
+                const controller = new AbortController();
+                this.searchController = controller;
+                this.searching = true;
+
+                try {
+                    const response = await fetch(`${this.searchUrl}?q=${encodeURIComponent(term)}`, {
+                        headers: { 'X-Requested-With': 'XMLHttpRequest', Accept: 'application/json' },
+                        signal: controller.signal,
+                    });
+
+                    if (!response.ok) throw new Error(`Search failed with status ${response.status}`);
+
+                    const data = await response.json();
+                    if (data.q !== term) return; // A newer query is already in flight.
+
+                    this.results = Array.isArray(data.results) ? data.results : [];
+                    this.resultsTerm = term;
+                    this.active = 0;
+                } catch (e) {
+                    if (e && e.name === 'AbortError') return;
+
+                    // Request failed — fall back to filtering the embedded list so the
+                    // user still gets usable results instead of an empty dropdown.
+                    this.results = this.localMatches;
+                    this.resultsTerm = term;
+                } finally {
+                    if (this.searchController === controller) {
+                        this.searchController = null;
+                        this.searching = false;
+                        this.pending = false;
+                    }
+                }
+            },
+
+            /**
+             * SEARCH button and Enter. One match opens its ledger, several keep the
+             * dropdown open so the user can choose, none reports "No distributor found".
+             */
+            async onSearch() {
+                if (!this.term) {
+                    this.open = true;
+                    this.$refs.search?.focus();
+
+                    return;
+                }
+
+                if (this.pending || this.resultsTerm !== this.term) {
+                    await this.runSearch();
+                }
+
+                const list = this.matches;
+
+                if (list.length === 1) {
+                    this.load(list[0]);
+
+                    return;
+                }
+
+                this.open = true;
+                this.active = 0;
             },
 
             move(step) {
@@ -506,6 +629,10 @@
 
             clearQuery() {
                 this.query = '';
+                this.results = [];
+                this.resultsTerm = null;
+                this.pending = false;
+                this.cancelSearch();
                 this.close();
                 this.$refs.search?.focus();
             },
@@ -517,19 +644,24 @@
                 this.target().innerHTML = '';
             },
 
-            search() {
-                const first = this.matches[0];
-
-                if (first) {
-                    this.load(first);
-                    return;
+            clearTimer() {
+                if (this.debounceTimer) {
+                    clearTimeout(this.debounceTimer);
+                    this.debounceTimer = null;
                 }
+            },
 
-                if (!this.term) return;
+            abortSearch() {
+                if (this.searchController) {
+                    this.searchController.abort();
+                    this.searchController = null;
+                }
+            },
 
-                this.error = true;
-                this.loaded = false;
-                this.current = null;
+            cancelSearch() {
+                this.clearTimer();
+                this.abortSearch();
+                this.searching = false;
             },
 
             async load(distributor) {
@@ -538,6 +670,10 @@
                 this.open = false;
                 this.error = false;
                 this.loaded = true;
+                this.results = [];
+                this.resultsTerm = null;
+                this.cancelSearch();
+                this.pending = false;
 
                 const target = this.target();
                 const requestUrl = distributor.summary_url;
@@ -577,7 +713,7 @@
                 try {
                     const stored = JSON.parse(localStorage.getItem(this.storageKey) || '[]');
                     return stored
-                        .map((entry) => distributors.find((d) => d.id === entry.id))
+                        .map((entry) => this.all.find((d) => d.id === entry.id))
                         .filter(Boolean)
                         .slice(0, 5);
                 } catch (e) {
