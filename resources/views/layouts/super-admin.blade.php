@@ -5,7 +5,7 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta name="csrf-token" content="{{ csrf_token() }}">
 
-        <title>{{ $title ?? 'Super Admin' }} &middot; {{ config('app.name', 'Laravel') }}</title>
+        <title>{{ $title ?? 'Super Admin' }} &middot; {{ $platformName ?? config('app.name', 'Laravel') }}</title>
 
         <style>
             [x-cloak] { display: none; }

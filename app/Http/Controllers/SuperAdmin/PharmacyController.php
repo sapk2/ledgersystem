@@ -6,9 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Requests\SuperAdmin\StorePharmacyRequest;
 use App\Http\Requests\SuperAdmin\UpdatePharmacyPasswordRequest;
 use App\Http\Requests\SuperAdmin\UpdatePharmacyRequest;
+use App\Models\AuditLog;
 use App\Models\Pharmacy;
 use App\Models\Scopes\PharmacyScope;
+use App\Models\Setting;
 use App\Models\User;
+use App\Services\AuditLogger;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -17,6 +20,8 @@ use Illuminate\View\View;
 
 class PharmacyController extends Controller
 {
+    public function __construct(private AuditLogger $audit) {}
+
     public function index(Request $request): View
     {
         $search = trim((string) $request->query('search'));
@@ -51,7 +56,10 @@ class PharmacyController extends Controller
     public function store(StorePharmacyRequest $request): RedirectResponse
     {
         $pharmacy = DB::transaction(function () use ($request): Pharmacy {
-            $pharmacy = Pharmacy::create($request->safe()->except('password'));
+            $attributes = $request->safe()->except('password');
+            $attributes['is_active'] = Setting::defaultPharmacyIsActive();
+
+            $pharmacy = Pharmacy::create($attributes);
 
             $owner = $pharmacy->users()->create([
                 'name' => $request->validated('owner_name'),
@@ -64,6 +72,8 @@ class PharmacyController extends Controller
 
             return $pharmacy;
         });
+
+        $this->audit->log(AuditLog::PHARMACY_CREATED, "Created the pharmacy {$pharmacy->name}.", $pharmacy);
 
         return redirect()
             ->route('super-admin.pharmacies.show', $pharmacy)
@@ -103,9 +113,27 @@ class PharmacyController extends Controller
             $owner->update(['email' => $request->validated('email')]);
         }
 
+        $this->audit->log(AuditLog::PHARMACY_UPDATED, "Updated the pharmacy {$pharmacy->name}.", $pharmacy);
+
         return redirect()
             ->route('super-admin.pharmacies.show', $pharmacy)
             ->with('status', "{$pharmacy->name} was updated.");
+    }
+
+    /**
+     * Soft delete a pharmacy so its historical ledger and payment records survive.
+     */
+    public function destroy(Pharmacy $pharmacy): RedirectResponse
+    {
+        $name = $pharmacy->name;
+
+        $pharmacy->delete();
+
+        $this->audit->log(AuditLog::PHARMACY_DELETED, "Deleted the pharmacy {$name}.", $pharmacy);
+
+        return redirect()
+            ->route('super-admin.pharmacies.index')
+            ->with('status', "{$name} was deleted. Its historical records have been preserved.");
     }
 
     public function updateStatus(Request $request, Pharmacy $pharmacy): RedirectResponse
@@ -116,6 +144,10 @@ class PharmacyController extends Controller
 
         $pharmacy->update($validated);
 
+        $this->audit->log(AuditLog::PHARMACY_STATUS, $pharmacy->is_active
+            ? "Activated the pharmacy {$pharmacy->name}."
+            : "Deactivated the pharmacy {$pharmacy->name}.", $pharmacy);
+
         return back()->with('status', $pharmacy->is_active
             ? "{$pharmacy->name} is now active."
             : "{$pharmacy->name} was deactivated and can no longer sign in.");
@@ -125,6 +157,8 @@ class PharmacyController extends Controller
     {
         // A query builder update bypasses the model cast, so the password is hashed here.
         $pharmacy->users()->update(['password' => Hash::make($request->validated('password'))]);
+
+        $this->audit->log(AuditLog::PHARMACY_PASSWORD, "Reset the password for {$pharmacy->name}.", $pharmacy);
 
         return back()->with('status', "The password for {$pharmacy->name} was reset.");
     }

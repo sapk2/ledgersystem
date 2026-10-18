@@ -225,6 +225,104 @@ test('a super admin can see pharmacy details and usage counts', function () {
         ->assertSee('Reset password');
 });
 
+test('deleting a pharmacy soft deletes it and preserves its history', function () {
+    admin(acting: true);
+    $pharmacy = Pharmacy::factory()->create(['name' => 'Legacy Pharmacy']);
+    $pharmacy->users()->create([
+        'name' => 'Owner',
+        'email' => 'legacy@pharmacy.test',
+        'password' => 'password',
+        'role' => User::ROLE_USER,
+    ]);
+    $distributor = $pharmacy->distributors()->create(['name' => 'Old Distributor']);
+
+    $this->delete(route('super-admin.pharmacies.destroy', $pharmacy))
+        ->assertRedirect(route('super-admin.pharmacies.index'));
+
+    expect(Pharmacy::find($pharmacy->id))->toBeNull()
+        ->and(Pharmacy::withTrashed()->find($pharmacy->id)->trashed())->toBeTrue()
+        ->and($pharmacy->users()->count())->toBe(1)
+        ->and($distributor->fresh())->not->toBeNull();
+});
+
+test('a deleted pharmacy disappears from the list and cannot be opened', function () {
+    admin(acting: true);
+    Pharmacy::factory()->create(['name' => 'Visible Pharmacy']);
+    $gone = Pharmacy::factory()->create(['name' => 'Hidden Pharmacy']);
+    $gone->delete();
+
+    $this->get(route('super-admin.pharmacies.index'))
+        ->assertSuccessful()
+        ->assertSee('Visible Pharmacy')
+        ->assertDontSee('Hidden Pharmacy');
+
+    $this->get(route('super-admin.pharmacies.show', $gone))->assertNotFound();
+});
+
+test('a deleted pharmacy user can no longer sign in', function () {
+    $user = User::factory()->withPharmacy()->create();
+    $user->pharmacy->delete();
+
+    $this->post(route('login'), [
+        'email' => $user->email,
+        'password' => 'password',
+    ])->assertSessionHasErrors('email');
+
+    $this->assertGuest();
+});
+
+test('a pharmacy user cannot delete a pharmacy', function () {
+    $user = User::factory()->withPharmacy()->create();
+    $pharmacy = Pharmacy::factory()->create();
+
+    $this->actingAs($user)
+        ->delete(route('super-admin.pharmacies.destroy', $pharmacy))
+        ->assertForbidden();
+
+    expect(Pharmacy::find($pharmacy->id))->not->toBeNull();
+});
+
+test('the sidebar exposes admin navigation without a duplicate add button', function () {
+    admin(acting: true);
+
+    $response = $this->get(route('super-admin.dashboard'))
+        ->assertSuccessful()
+        ->assertSee('User Management')
+        ->assertSee('System / Audit Logs')
+        ->assertSee('Settings')
+        ->assertSee('Pharmacies');
+
+    expect(substr_count($response->getContent(), 'Add Pharmacy'))->toBe(1);
+});
+
+test('the dashboard lists recent pharmacies in a data table', function () {
+    admin(acting: true);
+    Pharmacy::factory()->create(['name' => 'Recent Pharmacy']);
+
+    $this->get(route('super-admin.dashboard'))
+        ->assertSuccessful()
+        ->assertSee('Recently registered pharmacies')
+        ->assertSee('Contact / Email')
+        ->assertSee('Location')
+        ->assertSee('Actions')
+        ->assertSee('Recent Pharmacy');
+});
+
+test('the dashboard shows coloured active and inactive pharmacy pills', function () {
+    admin(acting: true);
+    Pharmacy::factory()->create();
+    Pharmacy::factory()->inactive()->create();
+
+    // The tenancy migration backfills a default pharmacy, so derive the counts.
+    $active = Pharmacy::where('is_active', true)->count();
+    $inactive = Pharmacy::where('is_active', false)->count();
+
+    $this->get(route('super-admin.dashboard'))
+        ->assertSuccessful()
+        ->assertSee("{$active} Active")
+        ->assertSee("{$inactive} Inactive");
+});
+
 test('an admin can log out from the administration area', function () {
     $admin = admin();
 

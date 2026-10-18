@@ -33,6 +33,7 @@ class UserFactory extends Factory
             'remember_token' => Str::random(10),
             'role' => User::ROLE_USER,
             'pharmacy_id' => null,
+            'is_active' => true,
         ];
     }
 
@@ -65,6 +66,16 @@ class UserFactory extends Factory
         return $this->state(fn (array $attributes) => [
             'role' => User::ROLE_ADMIN,
             'pharmacy_id' => null,
+        ]);
+    }
+
+    /**
+     * A disabled account that can no longer sign in.
+     */
+    public function inactive(): static
+    {
+        return $this->state(fn (array $attributes) => [
+            'is_active' => false,
         ]);
     }
 }

@@ -3,6 +3,7 @@
 namespace App\Providers;
 
 use App\Models\Pharmacy;
+use App\Models\Setting;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\View;
 use Illuminate\Support\ServiceProvider;
@@ -23,6 +24,7 @@ class AppServiceProvider extends ServiceProvider
     public function boot(): void
     {
         $this->shareCurrentPharmacy();
+        $this->sharePlatformName();
     }
 
     /**
@@ -32,6 +34,16 @@ class AppServiceProvider extends ServiceProvider
     {
         View::composer('*', function ($view): void {
             $view->with('currentPharmacy', $this->resolveCurrentPharmacy());
+        });
+    }
+
+    /**
+     * Share the configurable platform name with the administration area.
+     */
+    private function sharePlatformName(): void
+    {
+        View::composer(['layouts.super-admin', 'layouts.super-admin-navigation'], function ($view): void {
+            $view->with('platformName', Setting::get(Setting::PLATFORM_NAME, config('app.name', 'Laravel')));
         });
     }
 

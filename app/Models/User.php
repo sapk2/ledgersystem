@@ -11,7 +11,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['name', 'email', 'password', 'role', 'pharmacy_id'])]
+#[Fillable(['name', 'email', 'password', 'role', 'pharmacy_id', 'is_active'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
@@ -34,6 +34,7 @@ class User extends Authenticatable
         return [
             'email_verified_at' => 'datetime',
             'password' => 'hashed',
+            'is_active' => 'boolean',
         ];
     }
 
@@ -53,11 +54,27 @@ class User extends Authenticatable
     }
 
     /**
+     * A disabled account cannot sign in, regardless of its role.
+     */
+    public function isActive(): bool
+    {
+        return (bool) $this->is_active;
+    }
+
+    /**
      * Inactive pharmacies are signed out and blocked from the application.
      */
     public function hasActivePharmacy(): bool
     {
         return ! $this->isUser() || (bool) $this->pharmacy?->is_active;
+    }
+
+    /**
+     * Whether this account may currently authenticate.
+     */
+    public function canSignIn(): bool
+    {
+        return $this->isActive() && $this->hasActivePharmacy();
     }
 
     public function isActivePharmacy(): bool

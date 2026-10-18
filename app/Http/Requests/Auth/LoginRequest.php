@@ -55,7 +55,19 @@ class LoginRequest extends FormRequest
 
         RateLimiter::clear($this->throttleKey());
 
-        if (! Auth::user()->hasActivePharmacy()) {
+        $user = Auth::user();
+
+        if (! $user->isActive()) {
+            $this->logout();
+
+            RateLimiter::hit($this->throttleKey());
+
+            throw ValidationException::withMessages([
+                'email' => 'Your account has been disabled. Please contact the administrator.',
+            ]);
+        }
+
+        if (! $user->hasActivePharmacy()) {
             $this->logout();
 
             RateLimiter::hit($this->throttleKey());
